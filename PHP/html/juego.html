@@ -1,0 +1,272 @@
+<!-- /**
+ * * Descripción: Juegazo de reacción
+ * *
+ * *
+ * * @author Marc Bordes Gómez <al405682@uji.es> Elías Martín Cardozo <al405647@uji.es>
+ * * @copyright 2023 Bordes-Cardozo
+ * * @license http://www.fsf.org/licensing/licenses/gpl.txt GPL 2 or later
+ * * @version 2
+ **/ -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reaction Game</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Arial', sans-serif;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            border: 2px solid #333;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        #reactionTime {
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Juego de Reacción 😎</h2>
+    <p>Al pulsar el botón "Jugar" se mostrará una figura y seguidamente desaparecerá, acuérdate de cuál es porque
+        seguidamente aparecerán 4 figuras y trendrás que pulsar en la correcta!</p>
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <button onclick="startGame()">Jugar</button>
+    <p id="reactionTime"></p>   <!-- aqui se va a mostrar el tiempo que tarda el usuario en pulsar al elemento correcto -->
+
+    <p id="personalBest"></p>   <!-- aqui se va a mostrar si se ha hecho un récord personal al pulsar la figura -->
+
+    <div id="topTimes">     <!-- Top 3 de los mejores tiempos del usuario-->
+        <h3>Top 3 Tiempos</h3>
+        <ul id="topList"></ul>
+    </div>
+
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let targetFigure;
+        let startTime;
+        let fixedFigureClicked = false;
+        let fixedFigurePosition; // Almacena la posición de la fixedFigure
+
+        const topTimes = [];       //aqui se guardaran los mejores timepos
+        let personalBest = Infinity; // Inicializado en Infinity para garantizar que cualquier tiempo registrado sea menor.
+
+        canvas.addEventListener('click', handleCanvasClick);
+
+        function handleCanvasClick(event) {
+            const clickX = event.clientX - canvas.getBoundingClientRect().left;
+            const clickY = event.clientY - canvas.getBoundingClientRect().top;
+
+            if (isInsideFigure(clickX, clickY, fixedFigurePosition) && fixedFigureClicked) {
+                const endTime = Date.now();
+                const reactionTime = endTime - startTime;
+
+                // Verificar si el tiempo actual es mejor que el récord personal y lo mostramos
+                if (reactionTime < personalBest) {
+                    personalBest = reactionTime;
+
+                    document.getElementById('personalBest').textContent = `¡Nuevo récord personal: ${personalBest} ms!`;
+                    document.getElementById('personalBest').style.color = 'red';
+                } else {
+                    // Si no se ha mejorado el récord, ocultar el mensaje después de 2 segundos
+                    setTimeout(() => {
+                        document.getElementById('personalBest').textContent = '';
+                    }, 2000);
+                }
+
+                // Agregar el tiempo al array
+                topTimes.push(reactionTime);
+
+                // Ordenar el array de tiempos de menor a mayor
+                topTimes.sort((a, b) => a - b);
+
+                // Y Mantener solo los 3 mejores tiempos
+                topTimes.splice(3);
+
+                // Mostrar el tiempo del jugador
+                const reactionTimeElement = document.getElementById('reactionTime');
+                reactionTimeElement.textContent = `Tu tiempo de reacción es: ${reactionTime} ms`;
+
+                //mostramos el top 3 en forma de lista
+                const topListElement = document.getElementById('topList');
+                topListElement.innerHTML = '';  // Limpiar la lista antes de actualizar
+
+                topTimes.forEach((time, index) => {
+                    const listItem = document.createElement('li');
+                    listItem.textContent = `${index + 1}. ${time} ms`;
+                    topListElement.appendChild(listItem);
+                });
+            }
+        }
+
+
+        function isInsideFigure(x, y, position) {
+            // Utilizamos un área ligeramente más grande que el tamaño máximo de la figura para la comprobación ya que es más sencillo así para el jugador.
+            return x >= position.x - 35 && x <= position.x + 35 && y >= position.y - 35 && y <= position.y + 35;
+        }
+
+        function startGame() {
+            // Limpiar el mensaje de nuevo récord personal al inicio del juego
+            document.getElementById('personalBest').textContent = '';
+
+            clearCanvas();
+            setTimeout(() => {
+                startTime = Date.now();
+                drawFixedFigure(true);  // Pasar un parámetro indicando que es la primera vez y dibujamos la figura que se mostrará la primera vez
+                setTimeout(() => {
+                    clearCanvas();      //limpiamos el canvas y a continuacion dibujamos el resto de figuras aletatorias en una posición
+                    fixedFigurePosition = drawRandomFigures();
+                    drawFixedFigure();  // Dibujar la fixedFigure después de las figuras aleatorias
+                    fixedFigureClicked = true;
+                }, 500);
+            }, 500);
+        }
+
+
+        function drawFixedFigure(isFirstTime = false) {
+            const fixedColor = 'red';
+            const fixedShape = 'circle';
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 100;
+
+            let x, y;
+
+            if (isFirstTime) {
+                // Si es la primera vez, colocar la figura fija en el centro
+                x = centerX;
+                y = centerY;
+            } else {
+                // Si no es la primera vez, colocar la figura fija en una posición aleatoria junto a las demas figuras
+                const randomIndex = Math.floor(Math.random() * 4);
+                const randomAngle = randomIndex * (2 * Math.PI) / 4;
+                x = centerX + radius * Math.cos(randomAngle);
+                y = centerY + radius * Math.sin(randomAngle);
+            }
+
+            fixedFigurePosition = { x, y }; //nos guardamos la posicion de la figura cuando aparece la segunda vez para saber donde hay que pulsar
+
+            const figure = {
+                color: fixedColor,
+                shape: fixedShape,
+                x,
+                y
+            };
+
+            drawFigure(figure, figure.x, figure.y);
+            return fixedFigurePosition;
+        }
+
+
+        function drawRandomFigures() {
+            const colors = ['blue', 'green', 'yellow', 'purple'];       //diferentes colores que se usaran en las figuras random
+            const shapes = ['square', 'triangle', 'rectangle', 'cross'];    //diferentes difuras que se usaran en las figuras random
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 100;
+            //calculamos el incremento de angulo para que las figuras se coloquen en circulo, es decir 360/4 o lo que es lo mismo 2pi/4
+            const angleIncrement = (2 * Math.PI) / 4;
+
+            for (let i = 0; i < 4; i++) {       
+                //calculamos donde irá la figura respecto al centro. ya que las ubicamos en circulo.
+                const angle = i * angleIncrement;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+
+                const randomColor = getRandomColor(colors); //color aleatorio
+                const randomShape = getRandomShape(shapes); //figura aleatoria
+
+                const figure = {
+                    color: randomColor,
+                    shape: randomShape,
+                    x,
+                    y
+                };
+
+                drawFigure(figure, figure.x, figure.y);
+            }
+
+            return { x: centerX, y: centerY }; // Devolver la posición del centro como posición de la fixedFigure
+        }
+
+
+        function drawFigure(figure, x, y) {
+            ctx.clearRect(x - 35, y - 35, 70, 70);  // Borrar un área ligeramente más grande que el tamaño máximo de la figura
+
+            ctx.fillStyle = figure.color;
+
+            switch (figure.shape) { //funcion para dibujar los tipos de figuras que hemos especificado
+                case 'circle':
+                    ctx.beginPath();
+                    ctx.arc(x, y, 30, 0, 2 * Math.PI);
+                    ctx.fill();
+                    break;
+                case 'square':
+                    ctx.fillRect(x - 30, y - 30, 60, 60);
+                    break;
+                case 'triangle':
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - 30);
+                    ctx.lineTo(x - 30, y + 30);
+                    ctx.lineTo(x + 30, y + 30);
+                    ctx.fill();
+                    break;
+                case 'rectangle':
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - 30);
+                    ctx.lineTo(x - 30, y);
+                    ctx.lineTo(x, y + 30);
+                    ctx.lineTo(x + 30, y);
+                    ctx.fill();
+                    break;
+                case 'cross':
+                    ctx.fillRect(x - 5, y - 30, 10, 60);
+                    ctx.fillRect(x - 30, y - 5, 60, 10);
+                    break;
+                    break;
+            }
+        }
+
+
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        function getRandomColor(colors) {
+            const randomIndex = Math.floor(Math.random() * colors.length);
+            return colors.splice(randomIndex, 1)[0];
+        }
+
+        function getRandomShape(shapes) {
+            const randomIndex = Math.floor(Math.random() * shapes.length);
+            return shapes.splice(randomIndex, 1)[0];
+        }
+
+
+    </script>
+</body>
+
+</html>
